@@ -27,4 +27,12 @@ export class ProdutosController {
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.produtosService.findOne(id);
   }
+
+  // No seu produtos.controller.ts
+  @Get('minhas-hospedagens/:idCliente')
+  async findMinhasHospedagens(
+    @Param('idCliente', ParseIntPipe) idCliente: number,
+  ) {
+    return this.produtosService.findMinhasHospedagens(idCliente);
+  }
 }

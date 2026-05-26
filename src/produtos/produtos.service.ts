@@ -57,4 +57,17 @@ export class ProdutosService {
     }
     return produto;
   }
+
+  // No seu produtos.service.ts
+  async findMinhasHospedagens(idCliente: number) {
+    return this.prisma.produto.findMany({
+      where: {
+        id_cliente_produto: idCliente,
+        tipo_produto: 'hospedagem', // Filtra apenas o tipo hospedagem
+      },
+      orderBy: {
+        data_criacao: 'desc',
+      },
+    });
+  }
 }
