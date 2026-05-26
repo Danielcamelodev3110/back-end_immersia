@@ -1,0 +1,236 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Enums ---
+
+enum StatusProduto {
+  disponivel
+  descontinuado
+}
+
+enum TipoUsuario {
+  cliente
+  administrador
+  anfitriao
+}
+
+enum TipoAdmin {
+  admin
+  moderador
+  super_admin
+}
+
+enum StatusConta {
+  ativo
+  inativo
+  bloqueado
+  pendente
+}
+
+enum TipoProduto {
+  experiencia
+  hospedagem
+  pacote
+}
+
+enum StatusReserva {
+  pendente
+  confirmada
+  cancelada
+  concluida
+}
+
+enum FormaPagamento {
+  cartao
+  pix
+  boleto
+  dinheiro
+}
+
+// --- Tabelas ---
+
+model RegistroCliente {
+  id                 Int          @id @default(autoincrement())
+  nome_completo      String       @db.VarChar(255)
+  email              String       @unique @db.VarChar(255)
+  cpf                String?      @unique @db.VarChar(14)
+  senha_hash         String       @db.VarChar(255)
+  tipo_usuario       TipoUsuario  @default(cliente)
+  data_criacao       DateTime     @default(now()) @db.Timestamp(3)
+  data_atualizacao   DateTime     @updatedAt @db.Timestamp(3)
+  status_conta       StatusConta  @default(ativo)
+  data_nascimento    DateTime?
+  telefone           String?      @db.VarChar(20)
+  avatar_url         String?      @db.Text
+  bio                String?      @db.Text
+  ultimo_login       DateTime?    @db.Timestamp(3)
+  
+  // Relações
+  produtos           Produto[]
+  reservas           Reserva[]
+  avaliacoes         Avaliacao[]
+  favoritos          Favorito[]
+
+  @@index([email])
+  @@index([status_conta])
+  @@index([tipo_usuario])
+  @@map("registro_clientes")
+}
+
+model Produto {
+  id                 Int           @id @default(autoincrement())
+  categoria          String?       @default("geral") @db.VarChar(50)
+  nome               String        @db.VarChar(255)
+  descricao          String        @db.Text
+  preco              Decimal       @db.Decimal(10, 2)
+  imagem_url         String        @db.Text
+  quantidade_estoque Int?          @default(0)
+  status             StatusProduto @default(disponivel)
+  data_criacao       DateTime      @default(now()) @db.Timestamp(3)
+  data_atualizacao   DateTime      @updatedAt @db.Timestamp(3)
+  tipo_produto       TipoProduto   @default(experiencia)
+  localizacao        String?       @db.VarChar(255)
+  duracao            String?       @db.VarChar(50)
+  inclui            String?       @db.Text
+  nao_inclui        String?       @db.Text
+  
+  // Chave estrangeira
+  id_cliente_produto Int?
+  
+  // Relações
+  cliente            RegistroCliente? @relation(fields: [id_cliente_produto], references: [id], onDelete: SetNull)
+  reservas           Reserva[]
+  avaliacoes         Avaliacao[]
+  favoritos          Favorito[]
+
+  @@index([tipo_produto])
+  @@index([status])
+  @@index([categoria])
+  @@index([preco])
+  @@map("produtos")
+}
+
+model Reserva {
+  id                 Int            @id @default(autoincrement())
+  data_reserva       DateTime       @default(now()) @db.Timestamp(3)
+  data_checkin       DateTime?      @db.Timestamp(3)
+  data_checkout      DateTime?      @db.Timestamp(3)
+  quantidade         Int
+  preco_total        Decimal        @db.Decimal(10, 2)
+  status             StatusReserva  @default(pendente)
+  forma_pagamento    FormaPagamento?
+  codigo_reserva     String         @unique @db.VarChar(50)
+  observacoes        String?        @db.Text
+  
+  // Chaves estrangeiras
+  id_cliente         Int
+  id_produto         Int
+  
+  // Relações
+  cliente            RegistroCliente @relation(fields: [id_cliente], references: [id], onDelete: Cascade)
+  produto            Produto         @relation(fields: [id_produto], references: [id], onDelete: Cascade)
+  pagamento          Pagamento?
+
+  @@index([id_cliente])
+  @@index([id_produto])
+  @@index([status])
+  @@index([data_reserva])
+  @@map("reservas")
+}
+
+model Pagamento {
+  id                 Int            @id @default(autoincrement())
+  valor              Decimal        @db.Decimal(10, 2)
+  forma_pagamento    FormaPagamento
+  status             String         @db.VarChar(50)
+  transacao_id       String?        @unique @db.VarChar(255)
+  data_pagamento     DateTime       @default(now()) @db.Timestamp(3)
+  comprovante_url    String?        @db.Text
+  
+  // Chave estrangeira
+  id_reserva         Int            @unique
+  
+  // Relações
+  reserva            Reserva        @relation(fields: [id_reserva], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([data_pagamento])
+  @@map("pagamentos")
+}
+
+model Avaliacao {
+  id                 Int            @id @default(autoincrement())
+  nota               Int
+  comentario         String?        @db.Text
+  data_criacao       DateTime       @default(now()) @db.Timestamp(3)
+  data_atualizacao   DateTime       @updatedAt @db.Timestamp(3)
+  
+  // Chaves estrangeiras
+  id_cliente         Int
+  id_produto         Int
+  
+  // Relações
+  cliente            RegistroCliente @relation(fields: [id_cliente], references: [id], onDelete: Cascade)
+  produto            Produto         @relation(fields: [id_produto], references: [id], onDelete: Cascade)
+
+  @@unique([id_cliente, id_produto])
+  @@index([nota])
+  @@index([id_produto])
+  @@map("avaliacoes")
+}
+
+model Favorito {
+  id                 Int            @id @default(autoincrement())
+  data_criacao       DateTime       @default(now()) @db.Timestamp(3)
+  
+  // Chaves estrangeiras
+  id_cliente         Int
+  id_produto         Int
+  
+  // Relações
+  cliente            RegistroCliente @relation(fields: [id_cliente], references: [id], onDelete: Cascade)
+  produto            Produto         @relation(fields: [id_produto], references: [id], onDelete: Cascade)
+
+  @@unique([id_cliente, id_produto])
+  @@index([id_cliente])
+  @@map("favoritos")
+}
+
+model UsuarioAdmin {
+  id                 Int         @id @default(autoincrement())
+  nome               String      @db.VarChar(100)
+  email              String      @unique @db.VarChar(100)
+  senha              String      @db.VarChar(255)
+  tipo               TipoAdmin   @default(moderador)
+  data_criacao       DateTime    @default(now()) @db.Timestamp(3)
+  data_atualizacao   DateTime    @updatedAt @db.Timestamp(3)
+  ultimo_login       DateTime?   @db.Timestamp(3)
+  status             StatusConta @default(ativo)
+  permissoes         String[]    @db.Text
+
+  @@index([email])
+  @@index([status])
+  @@map("usuarios_admin")
+}
+
+model LogAcesso {
+  id                 Int         @id @default(autoincrement())
+  usuario_id         Int?
+  usuario_tipo       String      @db.VarChar(50)
+  acao               String      @db.VarChar(100)
+  ip                 String?     @db.VarChar(45)
+  user_agent         String?     @db.Text
+  data_acesso        DateTime    @default(now()) @db.Timestamp(3)
+  
+  @@index([usuario_id])
+  @@index([data_acesso])
+  @@index([acao])
+  @@map("logs_acesso")
+}
